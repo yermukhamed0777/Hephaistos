@@ -152,6 +152,101 @@ def _resolve_yield_from_catalog(
     return yield_pa, typical_or_minimum, source_note, interval_applies
 
 
+def _resolve_property_from_catalog(
+    material: Material,
+    thickness_m: float,
+    catalog: dict | None,
+    property_name: str,
+    default_value: float,
+) -> float:
+    """Resolve a material property (density, modulus, or yield) from the catalog.
+
+    If the material has a catalog_id and the catalog contains the requested
+    property with a thickness interval, the catalog value is used if thickness
+    falls within the interval. Otherwise, the material's default value is used.
+
+    Parameters
+    ----------
+    material : Material
+        The material instance with optional catalog_id.
+    thickness_m : float
+        Thickness in metres for interval checking.
+    catalog : dict or None
+        Material catalog dict as loaded from materials_catalog.json.
+    property_name : str
+        Name of the property to resolve: "yield_strength_mpa", "elastic_modulus_gpa",
+        or "density_kg_m3".
+    default_value : float
+        The material's default value to use if catalog is not applicable.
+
+    Returns
+    -------
+    float
+        The resolved property value in SI units.
+    """
+    catalog_id = None
+    sp = getattr(material, "_source_property", None) or {}
+    if sp and isinstance(sp, dict):
+        catalog_id = sp.get("catalog_id")
+
+    if not catalog_id or catalog is None:
+        return default_value
+
+    # Convert thickness from metres to millimetres for interval comparison
+    thickness_mm = thickness_m * 1e3
+
+    # Look up the material record in the catalog
+    mat_record = catalog.get("materials", [])
+    selected_mat = None
+    for m in mat_record:
+        if m.get("id") == catalog_id:
+            selected_mat = m
+            break
+
+    if selected_mat is None:
+        # Catalog ID not found; use default value
+        return default_value
+
+    # Resolve the requested property from catalog
+    for prop in selected_mat.get("properties", []):
+        if prop.get("property") == property_name:
+            ti = prop.get("thickness_interval_mm")
+            if ti is not None:
+                parsed = _parse_interval(ti)
+                if parsed is not None:
+                    lo, hi, left_incl, right_incl = parsed
+                    if _is_within_interval(lo, hi, left_incl, right_incl, thickness_mm):
+                        # Thickness within documented interval
+                        resolved = prop.get("value_mpa") if property_name == "yield_strength_mpa" else \
+                                   prop.get("value_gpa") if property_name == "elastic_modulus_gpa" else \
+                                   prop.get("value_kg_m3")
+                        if resolved is not None:
+                            if property_name == "yield_strength_mpa":
+                                return resolved * 1e6
+                            elif property_name == "elastic_modulus_gpa":
+                                return resolved * 1e9
+                            elif property_name == "density_kg_m3":
+                                return resolved
+                # If interval doesn't apply, fall through to default
+            else:
+                # No thickness interval; catalog value applies broadly
+                resolved = prop.get("value_mpa") if property_name == "yield_strength_mpa" else \
+                           prop.get("value_gpa") if property_name == "elastic_modulus_gpa" else \
+                           prop.get("value_kg_m3")
+                if resolved is not None:
+                    if property_name == "yield_strength_mpa":
+                        return resolved * 1e6
+                    elif property_name == "elastic_modulus_gpa":
+                        return resolved * 1e9
+                    elif property_name == "density_kg_m3":
+                        return resolved
+                # If no resolved value in property, fall through to default
+
+    # Catalog record found but property not found or interval not applicable;
+    # use the material's default value
+    return default_value
+
+
 def _require_representable(
     values: dict[str, float],
     material_id: str,
@@ -251,15 +346,22 @@ def evaluate_case(
                     beam.width_m,
                     thickness_m,
                 )
+                # Resolve density and modulus from catalog if material references it
+                modulus_pa = _resolve_property_from_catalog(
+                    material, thickness_m, catalog, "elastic_modulus_gpa", material.elastic_modulus_pa
+                )
+                density_kg_m3 = _resolve_property_from_catalog(
+                    material, thickness_m, catalog, "density_kg_m3", material.density_kg_m3
+                )
                 deflection = tip_deflection(
                     beam.tip_force_n,
                     beam.length_m,
                     beam.width_m,
                     thickness_m,
-                    material.elastic_modulus_pa,
+                    modulus_pa,
                 )
                 mass = beam_mass(
-                    material.density_kg_m3,
+                    density_kg_m3,
                     beam.width_m,
                     thickness_m,
                     beam.length_m,
