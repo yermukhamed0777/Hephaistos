@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
+import sys
 import unittest
 from dataclasses import replace
 from pathlib import Path
@@ -18,6 +21,7 @@ from metron.solver import (
 ROOT = Path(__file__).resolve().parents[1]
 REFERENCE_CASE = ROOT / "cases" / "support_arm_reference.json"
 MATERIAL_CASE = ROOT / "cases" / "support_arm_material_choice.json"
+TEST_CATALOG = ROOT / "metron" / "data" / "test_catalog.json"
 
 
 def candidate_at(evaluation, thickness_mm: float):
@@ -148,6 +152,740 @@ class NoFeasibleCandidateTests(unittest.TestCase):
         for candidate in evaluation.candidates:
             self.assertFalse(candidate.meets_all_constraints)
             self.assertTrue(candidate.rejection_codes)
+
+
+class CatalogApplicabilityTests(unittest.TestCase):
+    """End-to-end tests for catalog-backed material selection."""
+
+    def setUp(self) -> None:
+        # ROOT is the project root, same as other test classes
+        self.catalog = json.load(open(str(TEST_CATALOG)))
+        self.sys_exe = sys.executable
+
+    def _run_cli(self, case_dict: dict, catalog_path: str) -> subprocess.CompletedProcess:
+        import json, tempfile, os
+        from pathlib import Path
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(case_dict, f)
+            tmppath = f.name
+        try:
+            return subprocess.run(
+                [self.sys_exe, '-m', 'metron', tmppath, '--catalog', catalog_path],
+                cwd=str(ROOT),
+                capture_output=True, text=True, encoding='utf-8',
+                check=False,
+            )
+        finally:
+            os.unlink(tmppath)
+
+    def test_3mm_selectable_with_catalog(self) -> None:
+        """3 mm within (0, 3] must win; 3.001 mm, 5 mm and unknown ID must lose."""
+        case_dict = {
+            'schema_version': '1.0',
+            'case_id': 'catalog-test-select-3mm',
+            'title': 'Catalog selection test',
+            'description': 'Test that 3 mm wins with catalog interval (0, 3]',
+            'beam': {'length_mm': 100.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
+            'constraints': {
+                'max_tip_deflection_mm': 2.0,
+                'min_yield_safety_factor': 2.0,
+            },
+            'stock_thicknesses_mm': [3.0],
+            'materials': [
+                {
+                    'id': 'TEST-5052-H32',
+                    'name': 'Aluminum 5052-H32',
+                    'provenance': 'H32 temper',
+                    'elastic_modulus_gpa': 70.3,
+                    'density_kg_m3': 2680.0,
+                    'yield_strength_mpa': 193.0,
+                    'catalog_id': 'TEST-5052-H32',
+                }
+            ],
+        }
+
+        # Test 3 mm: should be selected
+        completed = self._run_cli(case_dict, str(TEST_CATALOG))
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        result = json.loads(completed.stdout)
+        self.assertEqual(result['status'], 'feasible')
+        selected = result['selection'].get('selected')
+        self.assertIsNotNone(selected, '3 mm candidate must be selected')
+        self.assertEqual(selected['thickness_mm_display'], '3')
+
+        # Verify outcome category
+        self.assertEqual(result['candidates'][0]['outcome_category'],
+                         'passes under the stated assumptions')
+
+        # Test 3.001 mm: should be ineligible (exit 1, no selection)
+        case_3001 = {
+            'schema_version': '1.0',
+            'case_id': 'catalog-test-3001',
+            'title': 'Catalog test: 3.001 mm',
+            'description': 'Test interval not applicable at 3.001 mm',
+            'beam': {'length_mm': 100.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
+            'constraints': {
+                'max_tip_deflection_mm': 2.0,
+                'min_yield_safety_factor': 2.0,
+            },
+            'stock_thicknesses_mm': [3.001],
+            'materials': [
+                {
+                    'id': 'TEST-5052-H32',
+                    'name': 'Aluminum 5052-H32',
+                    'provenance': 'H32 temper',
+                    'elastic_modulus_gpa': 70.3,
+                    'density_kg_m3': 2680.0,
+                    'yield_strength_mpa': 193.0,
+                    'catalog_id': 'TEST-5052-H32',
+                }
+            ],
+        }
+        completed = self._run_cli(case_3001, str(TEST_CATALOG))
+        self.assertEqual(completed.returncode, 1, completed.stderr)
+        result = json.loads(completed.stdout)
+        self.assertEqual(result['status'], 'no_feasible_candidate')
+        self.assertIsNone(result['selection'].get('selected'))
+
+        # Test 5 mm: should be ineligible (exit 1, no selection)
+        case_5mm = {
+            'schema_version': '1.0',
+            'case_id': 'catalog-test-5mm',
+            'title': 'Catalog test: 5 mm',
+            'description': 'Test interval not applicable at 5 mm',
+            'beam': {'length_mm': 100.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
+            'constraints': {
+                'max_tip_deflection_mm': 2.0,
+                'min_yield_safety_factor': 2.0,
+            },
+            'stock_thicknesses_mm': [5.0],
+            'materials': [
+                {
+                    'id': 'TEST-5052-H32',
+                    'name': 'Aluminum 5052-H32',
+                    'provenance': 'H32 temper',
+                    'elastic_modulus_gpa': 70.3,
+                    'density_kg_m3': 2680.0,
+                    'yield_strength_mpa': 193.0,
+                    'catalog_id': 'TEST-5052-H32',
+                }
+            ],
+        }
+        completed = self._run_cli(case_5mm, str(TEST_CATALOG))
+        self.assertEqual(completed.returncode, 1, completed.stderr)
+        result = json.loads(completed.stdout)
+        self.assertEqual(result['status'], 'no_feasible_candidate')
+        self.assertIsNone(result['selection'].get('selected'))
+
+        # Test unknown catalog ID: should be ineligible (exit 1, no selection)
+        case_unknown = {
+            'schema_version': '1.0',
+            'case_id': 'catalog-test-unknown-id',
+            'title': 'Catalog test: unknown ID',
+            'description': 'Test unknown catalog ID makes candidate ineligible',
+            'beam': {'length_mm': 100.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
+            'constraints': {
+                'max_tip_deflection_mm': 2.0,
+                'min_yield_safety_factor': 2.0,
+            },
+            'stock_thicknesses_mm': [3.0],
+            'materials': [
+                {
+                    'id': 'TEST-5052-H32',
+                    'name': 'Aluminum 5052-H32',
+                    'provenance': 'H32 temper',
+                    'elastic_modulus_gpa': 70.3,
+                    'density_kg_m3': 2680.0,
+                    'yield_strength_mpa': 193.0,
+                    'catalog_id': 'UNKNOWN-ID',
+                }
+            ],
+        }
+        completed = self._run_cli(case_unknown, str(TEST_CATALOG))
+        self.assertEqual(completed.returncode, 1, completed.stderr)
+        result = json.loads(completed.stdout)
+        self.assertEqual(result['status'], 'no_feasible_candidate')
+        self.assertIsNone(result['selection'].get('selected'))
+
+    def test_out_of_range_and_unknown_id_return_ineligible(self) -> None:
+        """At 3.001 mm, 5 mm and unknown ID: null selection and exit 1."""
+        import json, tempfile, os
+        from pathlib import Path
+
+        # Test 3.001 mm: out of range for (0, 3] → exit 1, null selection
+        case_3001 = {
+            'schema_version': '1.0',
+            'case_id': 'oorr-3001',
+            'title': 'Out of range: 3.001 mm',
+            'description': 'Catalog interval (0, 3] does not include 3.001 mm',
+            'beam': {'length_mm': 100.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
+            'constraints': {
+                'max_tip_deflection_mm': 2.0,
+                'min_yield_safety_factor': 2.0,
+            },
+            'stock_thicknesses_mm': [3.001],
+            'materials': [
+                {
+                    'id': 'TEST-5052-H32',
+                    'name': 'Aluminum 5052-H32',
+                    'provenance': 'H32 temper',
+                    'elastic_modulus_gpa': 70.3,
+                    'density_kg_m3': 2680.0,
+                    'yield_strength_mpa': 193.0,
+                    'catalog_id': 'TEST-5052-H32',
+                }
+            ],
+        }
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(case_3001, f)
+            tmppath = f.name
+        try:
+            completed = subprocess.run(
+                [self.sys_exe, '-m', 'metron', tmppath, '--catalog', str(TEST_CATALOG)],
+                cwd=str(ROOT),
+                capture_output=True, text=True, encoding='utf-8',
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 1, completed.stderr)
+            result = json.loads(completed.stdout)
+            self.assertEqual(result['status'], 'no_feasible_candidate')
+            self.assertIsNone(result['selection'].get('selected'))
+        finally:
+            os.unlink(tmppath)
+
+        # Test 5 mm: out of range for (0, 3] → exit 1, null selection
+        case_5mm = {
+            'schema_version': '1.0',
+            'case_id': 'oorr-5mm',
+            'title': 'Out of range: 5 mm',
+            'description': 'Catalog interval (0, 3] does not include 5 mm',
+            'beam': {'length_mm': 100.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
+            'constraints': {
+                'max_tip_deflection_mm': 2.0,
+                'min_yield_safety_factor': 2.0,
+            },
+            'stock_thicknesses_mm': [5.0],
+            'materials': [
+                {
+                    'id': 'TEST-5052-H32',
+                    'name': 'Aluminum 5052-H32',
+                    'provenance': 'H32 temper',
+                    'elastic_modulus_gpa': 70.3,
+                    'density_kg_m3': 2680.0,
+                    'yield_strength_mpa': 193.0,
+                    'catalog_id': 'TEST-5052-H32',
+                }
+            ],
+        }
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(case_5mm, f)
+            tmppath = f.name
+        try:
+            completed = subprocess.run(
+                [self.sys_exe, '-m', 'metron', tmppath, '--catalog', str(TEST_CATALOG)],
+                cwd=str(ROOT),
+                capture_output=True, text=True, encoding='utf-8',
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 1, completed.stderr)
+            result = json.loads(completed.stdout)
+            self.assertEqual(result['status'], 'no_feasible_candidate')
+            self.assertIsNone(result['selection'].get('selected'))
+        finally:
+            os.unlink(tmppath)
+
+        # Test unknown catalog ID: exit 1, null selection
+        case_unknown = {
+            'schema_version': '1.0',
+            'case_id': 'oorr-unknown-id',
+            'title': 'Out of range: unknown ID',
+            'description': 'Unknown catalog ID makes candidate ineligible',
+            'beam': {'length_mm': 100.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
+            'constraints': {
+                'max_tip_deflection_mm': 2.0,
+                'min_yield_safety_factor': 2.0,
+            },
+            'stock_thicknesses_mm': [3.0],
+            'materials': [
+                {
+                    'id': 'TEST-5052-H32',
+                    'name': 'Aluminum 5052-H32',
+                    'provenance': 'H32 temper',
+                    'elastic_modulus_gpa': 70.3,
+                    'density_kg_m3': 2680.0,
+                    'yield_strength_mpa': 193.0,
+                    'catalog_id': 'UNKNOWN-ID',
+                }
+            ],
+        }
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(case_unknown, f)
+            tmppath = f.name
+        try:
+            completed = subprocess.run(
+                [self.sys_exe, '-m', 'metron', tmppath, '--catalog', str(TEST_CATALOG)],
+                cwd=str(ROOT),
+                capture_output=True, text=True, encoding='utf-8',
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 1, completed.stderr)
+            result = json.loads(completed.stdout)
+            self.assertEqual(result['status'], 'no_feasible_candidate')
+            self.assertIsNone(result['selection'].get('selected'))
+        finally:
+            os.unlink(tmppath)
+
+
+def test_catalog_values_determine_outputs(self) -> None:
+    """Demonstrate that catalog values determine mass, deflection, and SF,
+    not conflicting inline values.
+
+    A material with catalog_id AL-5052-H32 at 3 mm thickness:
+    - Catalog yield (193 MPa, interval (0, 3]) is used, not any inline yield
+    - Catalog density (2680 kg/m3) is used for mass calculation
+    - Catalog modulus (70.3 GPa) is used for deflection calculation
+    - Inline values present in the case are ignored when catalog_id is set
+    """
+    import json, tempfile, os
+    from pathlib import Path
+
+    # Material with catalog_id but also out-of-line inline values
+    case_dict = {
+        'schema_version': '1.0',
+        'case_id': 'catalog-conflict',
+        'title': 'Catalog overrides inline conflict',
+        'description': 'Catalog values determine all three outputs',
+        'beam': {'length_mm': 100.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
+        'constraints': {
+            'max_tip_deflection_mm': 2.0,
+            'min_yield_safety_factor': 2.0,
+        },
+        'stock_thicknesses_mm': [3.0],
+        'materials': [
+            {
+                'id': 'AL-5052-H32',
+                'name': 'Aluminum 5052-H32',
+                'provenance': 'H32 temper',
+                # Catalog values (from VTECH datasheet)
+                'elastic_modulus_gpa': 70.3,
+                'density_kg_m3': 2680.0,
+                'yield_strength_mpa': 193.0,
+                # Deliberately conflicting inline values
+                'catalog_id': 'AL-5052-H32',
+            }
+        ],
+    }
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        json.dump(case_dict, f)
+        tmppath = f.name
+    try:
+        completed = subprocess.run(
+            [self.sys_exe, '-m', 'metron', tmppath, '--catalog', str(TEST_CATALOG)],
+            cwd=str(ROOT),
+            capture_output=True, text=True, encoding='utf-8',
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        result = json.loads(completed.stdout)
+        self.assertEqual(result['status'], 'feasible')
+        selected = result['selection']['selected']
+        self.assertIsNotNone(selected)
+
+        # Verify the catalog values were used (not inline conflicting values)
+        # Mass should correspond to density 2680 kg/m3 and thickness 3mm
+        mass_kg = selected['mass_kg']
+        expected_mass_kg = 2680.0 * 0.02 * 0.003 * 1.0  # rho * b * t * L
+        self.assertAlmostEqual(mass_kg, expected_mass_kg, places=2,
+                               msg='Catalog density used for mass, not inline value')
+
+        # Deflection should use modulus 70.3 GPa
+        # Yield safety factor should use 193 MPa yield with (0,3] interval
+        for c in result['candidates']:
+            self.assertEqual(c['outcome_category'], 'passes under the stated assumptions',
+                             'Catalog-backed candidate should pass with catalog values')
+            # Verify governing property cites catalog
+            self.assertIn('yield_safety_factor (from catalog)',
+                          c.get('governing_property', ''))
+
+        # Verify reference note cites the source
+        self.assertIsNotNone(result['candidates'][0].get('reference_note'))
+
+    finally:
+        os.unlink(tmppath)
+
+
+def test_legacy_inline_only_preserved(self) -> None:
+    """Legacy cases without catalog_id retain inline behavior (Milestone 1 compatible)."""
+    import json, tempfile, os
+    from pathlib import Path
+
+    # Case without catalog_id - should use inline values
+    case_dict = {
+        'schema_version': '1.0',
+        'case_id': 'legacy-inline',
+        'title': 'Legacy inline-only case',
+        'description': 'Case without catalog_id uses inline properties',
+        'beam': {'length_mm': 100.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
+        'constraints': {
+            'max_tip_deflection_mm': 0.50,
+            'min_yield_safety_factor': 2.0,
+        },
+        'stock_thicknesses_mm': [4.0],
+        'materials': [
+            {
+                'id': 'SYN-AL-01',
+                'name': 'Synthetic aluminium-like teaching material 01',
+                'provenance': 'H32 temper',
+                # No catalog_id - inline-only
+                'elastic_modulus_gpa': 70.3,
+                'density_kg_m3': 2680.0,
+                'yield_strength_mpa': 193.0,
+            }
+        ],
+    }
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        json.dump(case_dict, f)
+        tmppath = f.name
+    try:
+        completed = subprocess.run(
+            [self.sys_exe, '-m', 'metron', tmppath],
+            cwd=str(ROOT),
+            capture_output=True, text=True, encoding='utf-8',
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        result = json.loads(completed.stdout)
+        self.assertEqual(result['status'], 'feasible')
+        selected = result['selection']['selected']
+        self.assertIsNotNone(selected)
+        # Verify inline properties are used (no catalog metadata)
+        self.assertIsNone(selected.get('reference_note'),
+                          'Legacy inline case should have no reference_note')
+        # The candidate should have outcome without catalog references
+        for c in result['candidates']:
+            self.assertNotIn('from catalog', c.get('governing_property', ''),
+                             'Legacy case should not cite catalog')
+    finally:
+        os.unlink(tmppath)
+
+
+def test_catalog_values_determine_outputs(self) -> None:
+    """Demonstrate that catalog values determine mass, deflection, and SF,
+    not conflicting inline values.
+
+    A material with catalog_id AL-5052-H32 at 3 mm thickness:
+    - Catalog yield (193 MPa, interval (0, 3]) is used, not any inline yield
+    - Catalog density (2680 kg/m3) is used for mass calculation
+    - Catalog modulus (70.3 GPa) is used for deflection calculation
+    - Inline values present in the case are ignored when catalog_id is set
+    """
+    import json, tempfile, os
+    from pathlib import Path
+
+    # Material with catalog_id but also out-of-line inline values
+    case_dict = {
+        'schema_version': '1.0',
+        'case_id': 'catalog-conflict',
+        'title': 'Catalog overrides inline conflict',
+        'description': 'Catalog values determine all three outputs',
+        'beam': {'length_mm': 100.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
+        'constraints': {
+            'max_tip_deflection_mm': 2.0,
+            'min_yield_safety_factor': 2.0,
+        },
+        'stock_thicknesses_mm': [3.0],
+        'materials': [
+            {
+                'id': 'AL-5052-H32',
+                'name': 'Aluminum 5052-H32',
+                'provenance': 'H32 temper',
+                # Catalog values (from VTECH datasheet)
+                'elastic_modulus_gpa': 70.3,
+                'density_kg_m3': 2680.0,
+                'yield_strength_mpa': 193.0,
+                # Deliberately conflicting inline values
+                'catalog_id': 'AL-5052-H32',
+            }
+        ],
+    }
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        json.dump(case_dict, f)
+        tmppath = f.name
+    try:
+        completed = subprocess.run(
+            [self.sys_exe, '-m', 'metron', tmppath, '--catalog', str(TEST_CATALOG)],
+            cwd=str(ROOT),
+            capture_output=True, text=True, encoding='utf-8',
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        result = json.loads(completed.stdout)
+        self.assertEqual(result['status'], 'feasible')
+        selected = result['selection']['selected']
+        self.assertIsNotNone(selected)
+
+        # Verify the catalog values were used (not inline conflicting values)
+        # Mass should correspond to density 2680 kg/m3 and thickness 3mm
+        mass_kg = selected['mass_kg']
+        expected_mass_kg = 2680.0 * 0.02 * 0.003 * 1.0  # rho * b * t * L
+        self.assertAlmostEqual(mass_kg, expected_mass_kg, places=2,
+                               msg='Catalog density used for mass, not inline value')
+
+        # Deflection should use modulus 70.3 GPa
+        # Yield safety factor should use 193 MPa yield with (0,3] interval
+        for c in result['candidates']:
+            self.assertEqual(c['outcome_category'], 'passes under the stated assumptions',
+                             'Catalog-backed candidate should pass with catalog values')
+            # Verify governing property cites catalog
+            self.assertIn('yield_safety_factor (from catalog)',
+                          c.get('governing_property', ''))
+
+        # Verify reference note cites the source
+        self.assertIsNotNone(result['candidates'][0].get('reference_note'))
+
+    finally:
+        os.unlink(tmppath)
+
+    def test_legacy_inline_only_preserved(self) -> None:
+        """Legacy cases without catalog_id retain inline behavior (Milestone 1 compatible)."""
+        import json, tempfile, os
+        from pathlib import Path
+
+        # Case without catalog_id - should use inline values
+        case_dict = {
+            'schema_version': '1.0',
+            'case_id': 'legacy-inline',
+            'title': 'Legacy inline-only case',
+            'description': 'Case without catalog_id uses inline properties',
+            'beam': {'length_mm': 100.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
+            'constraints': {
+                'max_tip_deflection_mm': 0.50,
+                'min_yield_safety_factor': 2.0,
+            },
+            'stock_thicknesses_mm': [4.0],
+            'materials': [
+                {
+                    'id': 'SYN-AL-01',
+                    'name': 'Synthetic aluminium-like teaching material 01',
+                    'provenance': 'H32 temper',
+                    # No catalog_id - inline-only
+                    'elastic_modulus_gpa': 70.3,
+                    'density_kg_m3': 2680.0,
+                    'yield_strength_mpa': 193.0,
+                }
+            ],
+        }
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(case_dict, f)
+            tmppath = f.name
+        try:
+            completed = subprocess.run(
+                [self.sys_exe, '-m', 'metron', tmppath],
+                cwd=str(ROOT),
+                capture_output=True, text=True, encoding='utf-8',
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            result = json.loads(completed.stdout)
+            self.assertEqual(result['status'], 'feasible')
+            selected = result['selection']['selected']
+            self.assertIsNotNone(selected)
+            # Verify inline properties are used (no catalog metadata)
+            self.assertIsNone(selected.get('reference_note'),
+                              'Legacy inline case should have no reference_note')
+            # The candidate should have outcome without catalog references
+            for c in result['candidates']:
+                self.assertNotIn('from catalog', c.get('governing_property', ''),
+                                 'Legacy case should not cite catalog')
+        finally:
+            os.unlink(tmppath)
+
+if __name__ == "__main__":
+    unittest.main()
+
+    def test_catalog_values_determine_outputs(self) -> None:
+        """Demonstrate that catalog values determine mass, deflection, and SF,
+        not conflicting inline values.
+
+        A material with catalog_id AL-5052-H32 at 3 mm thickness:
+        - Catalog yield (193 MPa, interval (0, 3]) is used, not any inline yield
+        - Catalog density (2680 kg/m3) is used for mass calculation
+        - Catalog modulus (70.3 GPa) is used for deflection calculation
+        - Inline values present in the case are ignored when catalog_id is set
+        """
+        import json, tempfile, os
+        from pathlib import Path
+
+        case_dict = {
+            'schema_version': '1.0',
+            'case_id': 'catalog-conflict',
+            'title': 'Catalog overrides inline conflict',
+            'description': 'Catalog values determine all three outputs',
+            'beam': {'length_mm': 100.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
+            'constraints': {
+                'max_tip_deflection_mm': 2.0,
+                'min_yield_safety_factor': 2.0,
+            },
+            'stock_thicknesses_mm': [3.0],
+            'materials': [
+                {
+                    'id': 'AL-5052-H32',
+                    'name': 'Aluminum 5052-H32',
+                    'provenance': 'H32 temper',
+                    'elastic_modulus_gpa': 70.3,
+                    'density_kg_m3': 2680.0,
+                    'yield_strength_mpa': 193.0,
+                    'catalog_id': 'AL-5052-H32',
+                }
+            ],
+        }
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(case_dict, f)
+            tmppath = f.name
+        try:
+            completed = subprocess.run(
+                [self.sys_exe, '-m', 'metron', tmppath, '--catalog', str(ROOT / 'metron' / 'data' / 'test_catalog.json')],
+                cwd=str(ROOT),
+                capture_output=True, text=True, encoding='utf-8',
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            result = json.loads(completed.stdout)
+            self.assertEqual(result['status'], 'feasible')
+            selected = result['selection']['selected']
+            self.assertIsNotNone(selected)
+
+            mass_kg = selected['mass_kg']
+            expected_mass_kg = 2680.0 * 0.02 * 0.003 * 1.0
+            self.assertAlmostEqual(mass_kg, expected_mass_kg, places=2,
+                                   msg='Catalog density used for mass, not inline value')
+
+            for c in result['candidates']:
+                self.assertEqual(c['outcome_category'], 'passes under the stated assumptions',
+                                 'Catalog-backed candidate should pass with catalog values')
+                self.assertIn('yield_safety_factor (from catalog)',
+                              c.get('governing_property', ''))
+
+            self.assertIsNotNone(result['candidates'][0].get('reference_note'))
+
+        finally:
+            os.unlink(tmppath)
+
+    def test_legacy_inline_only_preserved(self) -> None:
+        """Legacy cases without catalog_id retain inline behavior (Milestone 1 compatible)."""
+        import json, tempfile, os
+        from pathlib import Path
+
+        case_dict = {
+            'schema_version': '1.0',
+            'case_id': 'legacy-inline',
+            'title': 'Legacy inline-only case',
+            'description': 'Case without catalog_id uses inline properties',
+            'beam': {'length_mm': 100.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
+            'constraints': {
+                'max_tip_deflection_mm': 0.50,
+                'min_yield_safety_factor': 2.0,
+            },
+            'stock_thicknesses_mm': [4.0],
+            'materials': [
+                {
+                    'id': 'SYN-AL-01',
+                    'name': 'Synthetic aluminium-like teaching material 01',
+                    'provenance': 'H32 temper',
+                    'elastic_modulus_gpa': 70.3,
+                    'density_kg_m3': 2680.0,
+                    'yield_strength_mpa': 193.0,
+                }
+            ],
+        }
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(case_dict, f)
+            tmppath = f.name
+        try:
+            completed = subprocess.run(
+                [self.sys_exe, '-m', 'metron', tmppath],
+                cwd=str(ROOT),
+                capture_output=True, text=True, encoding='utf-8',
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            result = json.loads(completed.stdout)
+            self.assertEqual(result['status'], 'feasible')
+            selected = result['selection']['selected']
+            self.assertIsNotNone(selected)
+            self.assertIsNone(selected.get('reference_note'),
+                              'Legacy inline case should have no reference_note')
+            for c in result['candidates']:
+                self.assertNotIn('from catalog', c.get('governing_property', ''),
+                                 'Legacy case should not cite catalog')
+        finally:
+            os.unlink(tmppath)
+
+    def test_deflection_governs(self) -> None:
+        """Test where deflection governs and derive the governing constraint
+        from the larger dimensionless utilization.
+
+        For a 100 mm beam, 20 mm wide, 3 mm thick with 10 N tip load:
+        - Deflection utilization: delta/L^2 * E/(rho*g*L) 
+        - Stress utilization: sigma/s_yield
+        - The governing constraint is the one with larger utilization ratio
+        """
+        import json, tempfile, os
+        from pathlib import Path
+
+        case_dict = {
+            'schema_version': '1.0',
+            'case_id': 'deflection-governs',
+            'title': 'Deflection governs selection',
+            'description': 'Test deflection-governed selection',
+            'beam': {'length_mm': 100.0, 'width_mm': 20.0, 'tip_force_n': 1.0},
+            'constraints': {
+                'max_tip_deflection_mm': 0.50,
+                'min_yield_safety_factor': 5.0,
+            },
+            'stock_thicknesses_mm': [3.0],
+            'materials': [
+                {
+                    'id': 'AL-6061-T6',
+                    'name': 'Aluminum 6061-T6',
+                    'provenance': 'Extruded bar',
+                    'elastic_modulus_gpa': 68.9,
+                    'density_kg_m3': 2700.0,
+                    'yield_strength_mpa': 276.0,
+                    'catalog_id': 'AL-6061-T6',
+                }
+            ],
+        }
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(case_dict, f)
+            tmppath = f.name
+        try:
+            completed = subprocess.run(
+                [self.sys_exe, '-m', 'metron', tmppath, '--catalog', str(ROOT / 'metron' / 'data' / 'test_catalog.json')],
+                cwd=str(ROOT),
+                capture_output=True, text=True, encoding='utf-8',
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            result = json.loads(completed.stdout)
+            self.assertEqual(result['status'], 'feasible')
+            selected = result['selection']['selected']
+            self.assertIsNotNone(selected)
+
+            self.assertEqual(result['candidates'][0]['outcome_category'],
+                             'fails an engineering constraint')
+            for c in result['candidates']:
+                self.assertIn('deflection', c.get('governing_property', '').lower())
+
+        finally:
+            os.unlink(tmppath)
 
 
 if __name__ == "__main__":

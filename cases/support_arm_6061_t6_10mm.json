@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "support-arm-6061-t6-10mm",
+  "title": "Robocon support arm: AL-6061-T6 extruded bar 10 mm",
+  "description": "Teaching case: A 100 mm long, 20 mm wide cantilever arm with 10 N downward tip load. Select 10 mm AL-6061-T6 extruded bar stock. Tip deflection limit 2.0 mm, minimum yield safety factor 2.0. Material from VTECH Datasheet Issue 5, Table 1, Row 3: yield 276 MPa typical for T6 temper, thickness interval (0, 25.4] mm. Density 2700 kg/m³, modulus 68.9 GPa.",
+  "beam": {
+    "length_mm": 100.0,
+    "width_mm": 20.0,
+    "tip_force_n": 10.0
+  },
+  "constraints": {
+    "max_tip_deflection_mm": 2.0,
+    "min_yield_safety_factor": 2.0
+  },
+  "stock_thicknesses_mm": [10.0],
+  "materials": [
+    {
+      "id": "AL-6061-T6",
+      "name": "Aluminum 6061-T6",
+      "provenance": "Extruded bar, t ≤ 5 mm min yield 241 MPa per ASTM B221; t > 5 mm plate min yield 290 MPa per ASTM B209. Catalog uses typical yield 276 MPa for (0, 25.4] mm interval.",
+      "elastic_modulus_gpa": 68.9,
+      "density_kg_m3": 2700.0,
+      "yield_strength_mpa": 276.0,
+      "catalog_id": "AL-6061-T6"
+    }
+  ]
+}

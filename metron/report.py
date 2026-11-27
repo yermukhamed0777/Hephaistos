@@ -170,6 +170,12 @@ def _candidate_dict(candidate: CandidateResult, case: Case) -> dict[str, object]
         },
         "meets_all_constraints": candidate.meets_all_constraints,
         "rejection_reasons": _rejection_dicts(candidate, case),
+        # Catalog-aware metadata
+        "outcome_category": candidate.outcome_category,
+        "governing_property": candidate.governing_property,
+        "governing_source": candidate.governing_source,
+        "uses_typical": candidate.uses_typical,
+        "reference_note": candidate.reference_note,
     }
 
 

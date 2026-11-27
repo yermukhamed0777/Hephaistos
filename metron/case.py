@@ -31,6 +31,7 @@ _MATERIAL_REQUIRED = (
     "density_kg_m3",
     "yield_strength_mpa",
 )
+_MATERIAL_OPTIONAL = ("catalog_id",)
 _UNIT_HINT = (
     "Use an explicit unit suffix such as _mm, _gpa, _mpa or _kg_m3. "
     "A generic units field is not accepted."
@@ -85,6 +86,8 @@ class Material:
     elastic_modulus_pa: float
     density_kg_m3: float
     yield_strength_pa: float
+    catalog_id: str | None = None
+    _source_property: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -370,7 +373,7 @@ def parse_case_document(document: Any) -> Case:
                 material_obj,
                 base_path,
                 _MATERIAL_REQUIRED,
-                (),
+                _MATERIAL_OPTIONAL,
                 issues,
             )
             material_id = _string(
@@ -430,6 +433,13 @@ def parse_case_document(document: Any) -> Case:
                 f"{base_path}.yield_strength_mpa",
                 issues,
             )
+            catalog_id = _string(
+                material_obj.get("catalog_id", ""),
+                f"{base_path}.catalog_id",
+                issues,
+                allow_empty=True,
+            )
+
             if None not in (modulus_pa, density, yield_pa):
                 materials.append(
                     Material(
@@ -439,6 +449,8 @@ def parse_case_document(document: Any) -> Case:
                         elastic_modulus_pa=modulus_pa,
                         density_kg_m3=density,
                         yield_strength_pa=yield_pa,
+                        catalog_id=catalog_id if catalog_id else None,
+                        _source_property={"catalog_id": catalog_id} if catalog_id else None,
                     )
                 )
 
