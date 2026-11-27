@@ -81,4 +81,27 @@ These checks establish agreement between the implementation and the stated Euler
 
 ## GitHub Actions
 
-The workflow at `.github/workflows/ci.yml` runs the same standard-library test suite and a CLI smoke test on Python 3.10 and 3.13 for pushes and pull requests. The remote CI state for the review branch is reported on the draft pull request and in the handoff message; this file records only the local pass above.
+The workflow at `.github/workflows/ci.yml` runs the same standard-library test suite and a CLI smoke test on Python 3.10 and 3.13 for pushes and pull requests.
+
+Remote CI state observed during this milestone (2026-11-27, Asia/Shanghai):
+
+- Draft pull request [#1 — Milestone 1: Metron cantilever material and stock selector](https://github.com/yermukhamed0777/Hephaistos/pull/1) (branch `milestone-1-metron`, base `main`).
+- Workflow run `45961792407` (pull_request event, head commit `5489a1c`): **success** on Python 3.10 and Python 3.13; the third check in the run (`Gitar`) also **success**.
+- Workflow run `45961788370` (push event, same branch/head): **success** on Python 3.10 and Python 3.13.
+- Draft PR merge state: `CLEAN`.
+
+This file records the local pass above and the remote CI state observed in this session; the status was also confirmed from the pull-request check rollup.
+
+## Status of the three checks
+
+| Check | Result |
+|---|---|
+| Local test run (this session, working tree and fresh-tree export) | **pass** — 52 tests, OK, exit 0 |
+| Remote GitHub Actions run on the draft PR head | **pass** — both matrix legs SUCCESS |
+| External review check ("Gitar") on the fixed head | **pass** |
+
+No check could not be run from this environment: the full suite, the CLI entry point and the numeric fuzz set were all executed locally, and the same suite plus a CLI smoke test run remotely via GitHub Actions.
+
+## Unresolved issues
+
+None at the close of this milestone. Extreme finite inputs, BOM-prefixed case files and numeric-range failures were all handled and regression-tested before this milestone was closed.
