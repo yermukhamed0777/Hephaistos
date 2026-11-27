@@ -10,7 +10,7 @@
         {
           "property": "elastic_modulus_gpa",
           "value_gpa": 68.9,
-          "value_pa": 68.9e9,
+          "value_pa": 68900000000.0,
           "typical_or_minimum": "typical",
           "unit": "GPa",
           "document_identity": "VTECH MATERIALS LIBRARY, TDS-AL-6061-T6-B221, Rev A (2026-04-07)",
@@ -25,9 +25,9 @@
         {
           "property": "density_kg_m3",
           "value_kg_m3": 2700.0,
-          "value_g_cm3": 2.70,
+          "value_g_cm3": 2.7,
           "typical_or_minimum": "typical",
-          "unit": "kg/m³",
+          "unit": "kg/m\u0412\u0456",
           "document_identity": "VTECH MATERIALS LIBRARY, TDS-AL-6061-T6-B221, Rev A (2026-04-07)",
           "url": "https://vtechadvanced.com/wp-content/uploads/datasheets/TDS-AL-6061-T6-B221_RevA.pdf",
           "page_table_row": "Section 4: Physical Properties, Density row",
@@ -40,19 +40,16 @@
         {
           "property": "yield_strength_mpa",
           "value_mpa": 276.0,
-          "value_pa": 276e6,
+          "value_pa": 276000000.0,
           "typical_or_minimum": "typical",
           "unit": "MPa",
           "document_identity": "Aluminum Association typical values; ASM MatWeb (MA6061T6); VTECH TDS",
           "url": "https://asm.matweb.com/search/SpecificMaterial.asp?bassnum=MA6061T6",
           "page_table_row": "Physical Properties: Tensile Yield Strength row; 1/16 in. (1.6 mm) thickness specimen",
           "temperature_c": 20,
-          "thickness_interval_mm": "(0, 25.4]",
+          "thickness_interval_mm": null,
           "condition_or_form": "T6 temper; 1/16 in. (1.6 mm) thickness specimen for tensile test",
-          "source_applicability": "Yield reported as Aluminum Association typical value for T6 temper. Minimum values vary by product form: plate/minimum 290 MPa (ASTM B209), extruded bar minimum 241 MPa (ASTM B221). Cite at property level when minimum is needed.",
-          "thickness_interval_mm": "(0, 25.4]",
-          "condition_or_form": "T6 temper; 1/16 in. (1.6 mm) thickness specimen for tensile test",
-          "source_applicability": "Yield is typical for T6 temper; minimum values are form-dependent. For extruded bar (t ≤ 5 mm), minimum yield is 241 MPa per ASTM B221. For plate, minimum yield is 290 MPa per ASTM B209. Cite at property level when minimum is needed.",
+          "source_applicability": "Yield value from VTECH TDS-AL-6061-T6-B221 Rev A, page 2, sections 3-4; thickness applicability not established in source. Screening example only.",
           "is_typical_for_product_form": true
         }
       ]
@@ -65,7 +62,7 @@
         {
           "property": "elastic_modulus_gpa",
           "value_gpa": 71.7,
-          "value_pa": 71.7e9,
+          "value_pa": 71700000000.0,
           "typical_or_minimum": "typical",
           "unit": "GPa",
           "document_identity": "VTECH MATERIALS LIBRARY, TDS-AL-7075-T6-QQA250, Rev A (2026-04-07)",
@@ -82,7 +79,7 @@
           "value_kg_m3": 2810.0,
           "value_g_cm3": 2.81,
           "typical_or_minimum": "typical",
-          "unit": "kg/m³",
+          "unit": "kg/m\u0412\u0456",
           "document_identity": "VTECH MATERIALS LIBRARY, TDS-AL-7075-T6-QQA250, Rev A (2026-04-07)",
           "url": "https://vtechadvanced.com/wp-content/uploads/datasheets/TDS-AL-7075-T6-QQA250_RevA.pdf",
           "page_table_row": "Section 4: Physical Properties, Density row",
@@ -95,7 +92,7 @@
         {
           "property": "yield_strength_mpa",
           "value_mpa": 503.0,
-          "value_pa": 503e6,
+          "value_pa": 503000000.0,
           "typical_or_minimum": "typical",
           "unit": "MPa",
           "document_identity": "Aluminum Association typical values; VTECH TDS; ASM MatWeb (MA7075T6); Kaiser Aluminum tube data",
@@ -103,11 +100,8 @@
           "page_table_row": "Section 3: Mechanical Properties, 0.2% yield strength row; typical T6 values",
           "temperature_c": 20,
           "thickness_interval_mm": "(0, 100]",
-          "condition_or_form": "T6 temper; general values (thickness-dependent minimums specified in source)",
-          "source_applicability": "Yield 503 MPa is the Aluminum Association typical value for T6 temper. Thickness-dependent minimums: T651 plate 6.35–12.7 mm minimum 462 MPa, T651 plate 3.001–3.50 mm minimum 490 MPa, T651 extruded bar minimum 241 MPa. Cite at property level when minimum is needed for a specific form.",
-          "thickness_interval_mm": "(0, 100]",
           "condition_or_form": "T6 temper; thickness-dependent minimums specified in source",
-          "source_applicability": "Yield is typical for T6 temper. Minimum values are form- and thickness-dependent. T651 plate 6.35–12.7 mm: min 462 MPa. T651 plate 3.001–3.50 mm: min 490 MPa. Extruded bar: min 241 MPa. Cite at property level when minimum is needed for a specific form.",
+          "source_applicability": "Yield is typical for T6 temper. Minimum values are form- and thickness-dependent. T651 plate 6.35\u0432\u0402\u201c12.7 mm: min 462 MPa. T651 plate 3.001\u0432\u0402\u201c3.50 mm: min 490 MPa. Extruded bar: min 241 MPa. Cite at property level when minimum is needed for a specific form.",
           "is_typical_for_product_form": true
         }
       ]
@@ -120,7 +114,7 @@
         {
           "property": "elastic_modulus_gpa",
           "value_gpa": 70.3,
-          "value_pa": 70.3e9,
+          "value_pa": 70300000000.0,
           "typical_or_minimum": "typical",
           "unit": "GPa",
           "document_identity": "ASM Material Data Sheet (MA5052H32); VTECH TDS, TDS-AL-5052-H32-B209, Rev A (2026-04-07)",
@@ -137,7 +131,7 @@
           "value_kg_m3": 2680.0,
           "value_g_cm3": 2.68,
           "typical_or_minimum": "typical",
-          "unit": "kg/m³",
+          "unit": "kg/m\u0412\u0456",
           "document_identity": "VTECH MATERIALS LIBRARY, TDS-AL-5052-H32-B209, Rev A (2026-04-07); AluCAD OS",
           "url": "https://vtechadvanced.com/wp-content/uploads/datasheets/TDS-AL-5052-H32-B221_RevA.pdf",
           "page_table_row": "Section 4: Physical Properties, Density row",
@@ -150,7 +144,7 @@
         {
           "property": "yield_strength_mpa",
           "value_mpa": 193.0,
-          "value_pa": 193e6,
+          "value_pa": 193000000.0,
           "typical_or_minimum": "typical",
           "unit": "MPa",
           "document_identity": "VTECH TDS, TDS-AL-5052-H32-B209, Rev A (2026-04-07); Alucalculator OS; thyssenkrupp tkMNA",
@@ -159,10 +153,7 @@
           "temperature_c": 20,
           "thickness_interval_mm": "(0, 3]",
           "condition_or_form": "H32 temper; extruded profiles and sheet",
-          "source_applicability": "Yield 193 MPa is typical for H32 temper. Normative design baseline per ASTM B209/EN AW-5052: minimum 193 MPa for extruded profiles (typically t ≤ 5 mm). Thicker plate and specific tempers follow dedicated standard sub-clauses. Cite at property level when minimum is needed.",
-          "thickness_interval_mm": "(0, 3]",
-          "condition_or_form": "H32 temper; extruded profiles and sheet",
-          "source_applicability": "Yield is typical for H32 temper; normative minimum 193 MPa for extruded profiles (t ≤ 5 mm). Thicker gauges, plate products (EN 485), and specific tempers follow dedicated standard sub-clauses. Cite at property level when minimum is needed.",
+          "source_applicability": "Yield is typical for H32 temper; normative minimum 193 MPa for extruded profiles (t \u0432\u2030\u00a4 5 mm). Thicker gauges, plate products (EN 485), and specific tempers follow dedicated standard sub-clauses. Cite at property level when minimum is needed.",
           "is_typical_for_product_form": true
         }
       ]
