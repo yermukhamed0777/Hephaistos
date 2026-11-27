@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local verification scratch space
+.verify/
+
+# Editors and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
