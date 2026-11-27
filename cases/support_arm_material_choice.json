@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "case_id": "support-arm-material-choice",
+  "title": "Robocon support arm: two-material selection",
+  "description": "Illustrative teaching case using the same 100 mm x 20 mm arm, 10 N tip load, 0.50 mm deflection limit and minimum safety factor of 2. It compares the reference synthetic material with a lower-density, lower-modulus synthetic material to exercise selection across materials. Neither material is a real alloy or product.",
+  "beam": {
+    "length_mm": 100.0,
+    "width_mm": 20.0,
+    "tip_force_n": 10.0
+  },
+  "constraints": {
+    "max_tip_deflection_mm": 0.50,
+    "min_yield_safety_factor": 2.0
+  },
+  "stock_thicknesses_mm": [3.0, 4.0, 5.0],
+  "materials": [
+    {
+      "id": "SYN-AL-01",
+      "name": "Synthetic aluminium-like teaching material 01",
+      "provenance": "Synthetic teaching fixture invented for METRON Milestone 1. Not a real alloy grade, not manufacturer data, and not for design use.",
+      "elastic_modulus_gpa": 70.0,
+      "density_kg_m3": 2700.0,
+      "yield_strength_mpa": 150.0
+    },
+    {
+      "id": "SYN-LD-02",
+      "name": "Synthetic low-density teaching material 02",
+      "provenance": "Synthetic teaching fixture invented for METRON Milestone 1. Not a real material, not manufacturer data, and not for design use.",
+      "elastic_modulus_gpa": 40.0,
+      "density_kg_m3": 1800.0,
+      "yield_strength_mpa": 120.0
+    }
+  ]
+}

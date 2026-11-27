@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "support-arm-reference",
+  "title": "Robocon support arm: stock-thickness check",
+  "description": "Illustrative teaching case. A 100 mm long, 20 mm wide arm is treated as a cantilever with a 10 N downward tip load. Select the lightest 3, 4 or 5 mm stock that limits tip deflection to 0.50 mm and keeps a yield safety factor of at least 2. The material properties are synthetic, not a real alloy.",
+  "beam": {
+    "length_mm": 100.0,
+    "width_mm": 20.0,
+    "tip_force_n": 10.0
+  },
+  "constraints": {
+    "max_tip_deflection_mm": 0.50,
+    "min_yield_safety_factor": 2.0
+  },
+  "stock_thicknesses_mm": [3.0, 4.0, 5.0],
+  "materials": [
+    {
+      "id": "SYN-AL-01",
+      "name": "Synthetic aluminium-like teaching material 01",
+      "provenance": "Synthetic teaching fixture invented for METRON Milestone 1. Not a real alloy grade, not manufacturer data, and not for design use.",
+      "elastic_modulus_gpa": 70.0,
+      "density_kg_m3": 2700.0,
+      "yield_strength_mpa": 150.0
+    }
+  ]
+}
