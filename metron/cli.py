@@ -33,6 +33,10 @@ def _parser() -> argparse.ArgumentParser:
         help="emit compact JSON instead of two-space-indented JSON",
     )
     parser.add_argument(
+        "--catalog",
+        help="path to a materials catalog JSON file for catalog-aware evaluation",
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version=f"%(prog)s {__version__}",
@@ -61,6 +65,8 @@ def _invalid_payload(
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+
+    catalog_path: str | None = args.catalog
 
     try:
         case = load_case_file(args.case_file)
@@ -99,7 +105,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         return EXIT_INVALID_INPUT
 
     try:
-        result = report_dict(evaluate_case(case))
+        result = report_dict(
+            evaluate_case(case, catalog=None if catalog_path is None else json.load(open(catalog_path)))
+        )
     except NumericalRangeError as exc:
         _emit(
             _invalid_payload(

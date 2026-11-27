@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
 import unittest
 from dataclasses import replace
 from pathlib import Path
@@ -18,6 +20,7 @@ from metron.solver import (
 ROOT = Path(__file__).resolve().parents[1]
 REFERENCE_CASE = ROOT / "cases" / "support_arm_reference.json"
 MATERIAL_CASE = ROOT / "cases" / "support_arm_material_choice.json"
+TEST_CATALOG = ROOT / "metron" / "data" / "test_catalog.json"
 
 
 def candidate_at(evaluation, thickness_mm: float):
@@ -148,6 +151,120 @@ class NoFeasibleCandidateTests(unittest.TestCase):
         for candidate in evaluation.candidates:
             self.assertFalse(candidate.meets_all_constraints)
             self.assertTrue(candidate.rejection_codes)
+
+
+class CatalogApplicabilityTests(unittest.TestCase):
+    """End-to-end tests for catalog-backed material selection."""
+
+    def setUp(self) -> None:
+        # ROOT is the project root, same as other test classes
+        self.catalog = json.load(open(str(TEST_CATALOG)))
+
+    def test_3mm_selectable_with_catalog(self) -> None:
+        """3 mm is within (0, 3] interval; candidate must be selected."""
+        import json, tempfile, os
+        from pathlib import Path
+
+        case_dict = {
+            'schema_version': '1.0',
+            'case_id': 'catalog-test-3mm',
+            'title': 'Catalog test: 3 mm',
+            'description': 'Test catalog interval applicability at 3 mm',
+            'beam': {'length_mm': 1000.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
+            'constraints': {
+                'max_tip_deflection_mm': 1.0,
+                'min_yield_safety_factor': 2.0,
+            },
+            'stock_thicknesses_mm': [3.0],
+            'materials': [
+                {
+                    'id': 'TEST-5052-H32',
+                    'name': 'Aluminum 5052-H32',
+                    'provenance': 'H32 temper',
+                    'elastic_modulus_gpa': 70.3,
+                    'density_kg_m3': 2680.0,
+                    'yield_strength_mpa': 193.0,
+                    'catalog_id': 'TEST-5052-H32',
+                }
+            ],
+        }
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(case_dict, f)
+            tmppath = f.name
+        try:
+            completed = subprocess.run(
+                ['python', '-m', 'metron', tmppath, '--catalog', str(TEST_CATALOG)],
+                cwd=str(ROOT),
+                capture_output=True, text=True, encoding='utf-8',
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            result = json.loads(completed.stdout)
+            self.assertEqual(result['status'], 'feasible')
+            selected = result['selection']['selected']
+            self.assertIsNotNone(selected)
+            self.assertEqual(selected['thickness_mm_display'], '3')
+            # Heavier candidates at 3.001 and 5 mm must be excluded for lacking applicable evidence
+            outcomes = {c['thickness_mm_display']: c['outcome_category'] for c in result['candidates']}
+            self.assertEqual(outcomes.get('3', ''), 'passes under the stated assumptions')
+            self.assertEqual(outcomes.get('3.001', ''), 'lacks applicable evidence')
+            self.assertEqual(outcomes.get('5', ''), 'lacks applicable evidence')
+        finally:
+            os.unlink(tmppath)
+
+    def test_3mm001_and_5mm_excluded_for_missing_evidence(self) -> None:
+        """At 3.001 mm and 5 mm, catalog interval not applicable → lacks applicable evidence."""
+        import json, tempfile, os
+        from pathlib import Path
+
+        case_dict = {
+            'schema_version': '1.0',
+            'case_id': 'catalog-test-out-of-range',
+            'title': 'Catalog test: out of range',
+            'description': 'Test catalog interval not applicable outside (0, 3]',
+            'beam': {'length_mm': 1000.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
+            'constraints': {
+                'max_tip_deflection_mm': 1.0,
+                'min_yield_safety_factor': 2.0,
+            },
+            'stock_thicknesses_mm': [3.0, 3.001, 5.0],
+            'materials': [
+                {
+                    'id': 'TEST-5052-H32',
+                    'name': 'Aluminum 5052-H32',
+                    'provenance': 'H32 temper',
+                    'elastic_modulus_gpa': 70.3,
+                    'density_kg_m3': 2680.0,
+                    'yield_strength_mpa': 193.0,
+                    'catalog_id': 'TEST-5052-H32',
+                }
+            ],
+        }
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(case_dict, f)
+            tmppath = f.name
+        try:
+            completed = subprocess.run(
+                ['python', '-m', 'metron', tmppath, '--catalog', str(TEST_CATALOG)],
+                cwd=str(ROOT),
+                capture_output=True, text=True, encoding='utf-8',
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            result = json.loads(completed.stdout)
+            self.assertEqual(result['status'], 'no_feasible_candidate')
+            # Verify each candidate's outcome
+            for c in result['candidates']:
+                t = c['thickness_mm_display']
+                if t == '3':
+                    # 3 mm should pass (interval applies)
+                    self.assertEqual(c['outcome_category'], 'passes under the stated assumptions')
+                elif t in ('3.001', '5'):
+                    # Out of range → lacks applicable evidence
+                    self.assertEqual(c['outcome_category'], 'lacks applicable evidence')
+                    self.assertFalse(c['meets_all_constraints'])
+        finally:
+            os.unlink(tmppath)
 
 
 if __name__ == "__main__":

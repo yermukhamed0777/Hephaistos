@@ -1,0 +1,171 @@
+{
+  "schema_version": "1.0",
+  "notes": "Curated material records from primary metal producers with public technical sheets. Each record specifies alloy/grade, temper/condition, product form, and applicable dimensions. Values marked 'typical' represent average production stock; 'minimum' values are standard guarantees per the governing specification. Thickness intervals use the notation (a-b] for exclusive lower bound, [a-b] for inclusive, (a-b) for exclusive both, unless stated otherwise.",
+  "materials": [
+    {
+      "id": "AL-6061-T6",
+      "name": "Aluminum 6061-T6",
+      "provenance": "Primary metal producer data; sourced from VTECH TDS, ASM MatWeb, and Aluminum Association.",
+      "properties": [
+        {
+          "property": "elastic_modulus_gpa",
+          "value_gpa": 68.9,
+          "value_pa": 68.9e9,
+          "typical_or_minimum": "typical",
+          "unit": "GPa",
+          "document_identity": "VTECH MATERIALS LIBRARY, TDS-AL-6061-T6-B221, Rev A (2026-04-07)",
+          "url": "https://vtechadvanced.com/wp-content/uploads/datasheets/TDS-AL-6061-T6-B221_RevA.pdf",
+          "page_table_row": "Section 4: Physical Properties, Elastic modulus row",
+          "temperature_c": null,
+          "thickness_interval_mm": null,
+          "condition_or_form": "T6 temper; applicable to extrusions, plate, bar, and sheet per ASTM B221/B209",
+          "source_applicability": "Modulus is an intrinsic property of the alloy composition; does not vary with temper or thickness. Cited at property level.",
+          "is_typical_for_product_form": true
+        },
+        {
+          "property": "density_kg_m3",
+          "value_kg_m3": 2700.0,
+          "value_g_cm3": 2.70,
+          "typical_or_minimum": "typical",
+          "unit": "kg/m³",
+          "document_identity": "VTECH MATERIALS LIBRARY, TDS-AL-6061-T6-B221, Rev A (2026-04-07)",
+          "url": "https://vtechadvanced.com/wp-content/uploads/datasheets/TDS-AL-6061-T6-B221_RevA.pdf",
+          "page_table_row": "Section 4: Physical Properties, Density row",
+          "temperature_c": 20,
+          "thickness_interval_mm": null,
+          "condition_or_form": "T6 temper; flat product forms",
+          "source_applicability": "Density is an intrinsic property of the alloy; reported as typical average for T6 temper.",
+          "is_typical_for_product_form": true
+        },
+        {
+          "property": "yield_strength_mpa",
+          "value_mpa": 276.0,
+          "value_pa": 276e6,
+          "typical_or_minimum": "typical",
+          "unit": "MPa",
+          "document_identity": "Aluminum Association typical values; ASM MatWeb (MA6061T6); VTECH TDS",
+          "url": "https://asm.matweb.com/search/SpecificMaterial.asp?bassnum=MA6061T6",
+          "page_table_row": "Physical Properties: Tensile Yield Strength row; 1/16 in. (1.6 mm) thickness specimen",
+          "temperature_c": 20,
+          "thickness_interval_mm": "(0, 25.4]",
+          "condition_or_form": "T6 temper; 1/16 in. (1.6 mm) thickness specimen for tensile test",
+          "source_applicability": "Yield reported as Aluminum Association typical value for T6 temper. Minimum values vary by product form: plate/minimum 290 MPa (ASTM B209), extruded bar minimum 241 MPa (ASTM B221). Cite at property level when minimum is needed.",
+          "thickness_interval_mm": "(0, 25.4]",
+          "condition_or_form": "T6 temper; 1/16 in. (1.6 mm) thickness specimen for tensile test",
+          "source_applicability": "Yield is typical for T6 temper; minimum values are form-dependent. For extruded bar (t ≤ 5 mm), minimum yield is 241 MPa per ASTM B221. For plate, minimum yield is 290 MPa per ASTM B209. Cite at property level when minimum is needed.",
+          "is_typical_for_product_form": true
+        }
+      ]
+    },
+    {
+      "id": "AL-7075-T6",
+      "name": "Aluminum 7075-T6",
+      "provenance": "Primary metal producer data; sourced from VTECH TDS, ASM MatWeb, and Kaiser Aluminum.",
+      "properties": [
+        {
+          "property": "elastic_modulus_gpa",
+          "value_gpa": 71.7,
+          "value_pa": 71.7e9,
+          "typical_or_minimum": "typical",
+          "unit": "GPa",
+          "document_identity": "VTECH MATERIALS LIBRARY, TDS-AL-7075-T6-QQA250, Rev A (2026-04-07)",
+          "url": "https://vtechadvanced.com/wp-content/uploads/datasheets/TDS-AL-7075-T6-QQA250_RevA.pdf",
+          "page_table_row": "Section 4: Physical Properties, Elastic modulus row",
+          "temperature_c": null,
+          "thickness_interval_mm": null,
+          "condition_or_form": "T6 temper; plate, sheet, bar, forging stock per AMS-QQ-A-250/12 and ASTM B209",
+          "source_applicability": "Modulus is an intrinsic property of the alloy composition; does not vary with temper or thickness. Cited at property level.",
+          "is_typical_for_product_form": true
+        },
+        {
+          "property": "density_kg_m3",
+          "value_kg_m3": 2810.0,
+          "value_g_cm3": 2.81,
+          "typical_or_minimum": "typical",
+          "unit": "kg/m³",
+          "document_identity": "VTECH MATERIALS LIBRARY, TDS-AL-7075-T6-QQA250, Rev A (2026-04-07)",
+          "url": "https://vtechadvanced.com/wp-content/uploads/datasheets/TDS-AL-7075-T6-QQA250_RevA.pdf",
+          "page_table_row": "Section 4: Physical Properties, Density row",
+          "temperature_c": 20,
+          "thickness_interval_mm": null,
+          "condition_or_form": "T6 temper; flat product forms",
+          "source_applicability": "Density is an intrinsic property of the alloy; reported as typical average for T6 temper.",
+          "is_typical_for_product_form": true
+        },
+        {
+          "property": "yield_strength_mpa",
+          "value_mpa": 503.0,
+          "value_pa": 503e6,
+          "typical_or_minimum": "typical",
+          "unit": "MPa",
+          "document_identity": "Aluminum Association typical values; VTECH TDS; ASM MatWeb (MA7075T6); Kaiser Aluminum tube data",
+          "url": "https://vtechadvanced.com/wp-content/uploads/datasheets/TDS-AL-7075-T6-QQA250_RevA.pdf",
+          "page_table_row": "Section 3: Mechanical Properties, 0.2% yield strength row; typical T6 values",
+          "temperature_c": 20,
+          "thickness_interval_mm": "(0, 100]",
+          "condition_or_form": "T6 temper; general values (thickness-dependent minimums specified in source)",
+          "source_applicability": "Yield 503 MPa is the Aluminum Association typical value for T6 temper. Thickness-dependent minimums: T651 plate 6.35–12.7 mm minimum 462 MPa, T651 plate 3.001–3.50 mm minimum 490 MPa, T651 extruded bar minimum 241 MPa. Cite at property level when minimum is needed for a specific form.",
+          "thickness_interval_mm": "(0, 100]",
+          "condition_or_form": "T6 temper; thickness-dependent minimums specified in source",
+          "source_applicability": "Yield is typical for T6 temper. Minimum values are form- and thickness-dependent. T651 plate 6.35–12.7 mm: min 462 MPa. T651 plate 3.001–3.50 mm: min 490 MPa. Extruded bar: min 241 MPa. Cite at property level when minimum is needed for a specific form.",
+          "is_typical_for_product_form": true
+        }
+      ]
+    },
+    {
+      "id": "AL-5052-H32",
+      "name": "Aluminum 5052-H32",
+      "provenance": "Primary metal producer data; sourced from VTECH TDS, ASM MatWeb, and AluCAD OS.",
+      "properties": [
+        {
+          "property": "elastic_modulus_gpa",
+          "value_gpa": 70.3,
+          "value_pa": 70.3e9,
+          "typical_or_minimum": "typical",
+          "unit": "GPa",
+          "document_identity": "ASM Material Data Sheet (MA5052H32); VTECH TDS, TDS-AL-5052-H32-B209, Rev A (2026-04-07)",
+          "url": "https://asm.matweb.com/search/SpecificMaterial.asp?bassnum=ma5052h32",
+          "page_table_row": "Physical Properties: Modulus of Elasticity row",
+          "temperature_c": null,
+          "thickness_interval_mm": null,
+          "condition_or_form": "H32 temper; non-heat-treatable, strength by strain hardening",
+          "source_applicability": "Modulus is an intrinsic property of the alloy composition; does not vary with temper or thickness. Cited at property level.",
+          "is_typical_for_product_form": true
+        },
+        {
+          "property": "density_kg_m3",
+          "value_kg_m3": 2680.0,
+          "value_g_cm3": 2.68,
+          "typical_or_minimum": "typical",
+          "unit": "kg/m³",
+          "document_identity": "VTECH MATERIALS LIBRARY, TDS-AL-5052-H32-B209, Rev A (2026-04-07); AluCAD OS",
+          "url": "https://vtechadvanced.com/wp-content/uploads/datasheets/TDS-AL-5052-H32-B221_RevA.pdf",
+          "page_table_row": "Section 4: Physical Properties, Density row",
+          "temperature_c": 20,
+          "thickness_interval_mm": null,
+          "condition_or_form": "H32 temper; sheet and plate per ASTM B209",
+          "source_applicability": "Density is an intrinsic property of the alloy; reported as typical average for H32 temper.",
+          "is_typical_for_product_form": true
+        },
+        {
+          "property": "yield_strength_mpa",
+          "value_mpa": 193.0,
+          "value_pa": 193e6,
+          "typical_or_minimum": "typical",
+          "unit": "MPa",
+          "document_identity": "VTECH TDS, TDS-AL-5052-H32-B209, Rev A (2026-04-07); Alucalculator OS; thyssenkrupp tkMNA",
+          "url": "https://vtechadvanced.com/wp-content/uploads/datasheets/TDS-AL-5052-H32-B221_RevA.pdf",
+          "page_table_row": "Section 3: Mechanical Properties, 0.2% yield strength row; H32 temper",
+          "temperature_c": 20,
+          "thickness_interval_mm": "(0, 3]",
+          "condition_or_form": "H32 temper; extruded profiles and sheet",
+          "source_applicability": "Yield 193 MPa is typical for H32 temper. Normative design baseline per ASTM B209/EN AW-5052: minimum 193 MPa for extruded profiles (typically t ≤ 5 mm). Thicker plate and specific tempers follow dedicated standard sub-clauses. Cite at property level when minimum is needed.",
+          "thickness_interval_mm": "(0, 3]",
+          "condition_or_form": "H32 temper; extruded profiles and sheet",
+          "source_applicability": "Yield is typical for H32 temper; normative minimum 193 MPa for extruded profiles (t ≤ 5 mm). Thicker gauges, plate products (EN 485), and specific tempers follow dedicated standard sub-clauses. Cite at property level when minimum is needed.",
+          "is_typical_for_product_form": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "materials": [
+    {
+      "id": "TEST-5052-H32",
+      "name": "Aluminum 5052-H32",
+      "properties": [
+        {
+          "property": "yield_strength_mpa",
+          "thickness_interval_mm": "(0, 3]",
+          "value_mpa": 193.0,
+          "typical_or_minimum": "typical",
+          "source_applicability": "VTECH Datasheet Issue 5, Table 1, Row 3"
+        }
+      ]
+    }
+  ]
+}
