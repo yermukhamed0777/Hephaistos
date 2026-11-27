@@ -328,6 +328,10 @@ def evaluate_case(
                 rejection_codes.append(DEFLECTION_REJECTION)
             if not yield_passes:
                 rejection_codes.append(STRENGTH_REJECTION)
+            # A catalog-backed candidate with thickness outside its documented
+            # interval is ineligible, even if the nominal yield would pass.
+            if has_catalog_ref and not interval_applies:
+                rejection_codes.append("lacks_applicable_evidence")
 
             # Build a reference note for the output
             reference_note: str | None = None

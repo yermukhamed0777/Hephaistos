@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import unittest
 from dataclasses import replace
 from pathlib import Path
@@ -159,20 +160,34 @@ class CatalogApplicabilityTests(unittest.TestCase):
     def setUp(self) -> None:
         # ROOT is the project root, same as other test classes
         self.catalog = json.load(open(str(TEST_CATALOG)))
+        self.sys_exe = sys.executable
 
-    def test_3mm_selectable_with_catalog(self) -> None:
-        """3 mm is within (0, 3] interval; candidate must be selected."""
+    def _run_cli(self, case_dict: dict, catalog_path: str) -> subprocess.CompletedProcess:
         import json, tempfile, os
         from pathlib import Path
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(case_dict, f)
+            tmppath = f.name
+        try:
+            return subprocess.run(
+                [self.sys_exe, '-m', 'metron', tmppath, '--catalog', catalog_path],
+                cwd=str(ROOT),
+                capture_output=True, text=True, encoding='utf-8',
+                check=False,
+            )
+        finally:
+            os.unlink(tmppath)
 
+    def test_3mm_selectable_with_catalog(self) -> None:
+        """3 mm within (0, 3] must win; 3.001 mm, 5 mm and unknown ID must lose."""
         case_dict = {
             'schema_version': '1.0',
-            'case_id': 'catalog-test-3mm',
-            'title': 'Catalog test: 3 mm',
-            'description': 'Test catalog interval applicability at 3 mm',
-            'beam': {'length_mm': 1000.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
+            'case_id': 'catalog-test-select-3mm',
+            'title': 'Catalog selection test',
+            'description': 'Test that 3 mm wins with catalog interval (0, 3]',
+            'beam': {'length_mm': 100.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
             'constraints': {
-                'max_tip_deflection_mm': 1.0,
+                'max_tip_deflection_mm': 2.0,
                 'min_yield_safety_factor': 2.0,
             },
             'stock_thicknesses_mm': [3.0],
@@ -188,46 +203,127 @@ class CatalogApplicabilityTests(unittest.TestCase):
                 }
             ],
         }
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            json.dump(case_dict, f)
-            tmppath = f.name
-        try:
-            completed = subprocess.run(
-                ['python', '-m', 'metron', tmppath, '--catalog', str(TEST_CATALOG)],
-                cwd=str(ROOT),
-                capture_output=True, text=True, encoding='utf-8',
-                check=False,
-            )
-            self.assertEqual(completed.returncode, 0, completed.stderr)
-            result = json.loads(completed.stdout)
-            self.assertEqual(result['status'], 'feasible')
-            selected = result['selection']['selected']
-            self.assertIsNotNone(selected)
-            self.assertEqual(selected['thickness_mm_display'], '3')
-            # Heavier candidates at 3.001 and 5 mm must be excluded for lacking applicable evidence
-            outcomes = {c['thickness_mm_display']: c['outcome_category'] for c in result['candidates']}
-            self.assertEqual(outcomes.get('3', ''), 'passes under the stated assumptions')
-            self.assertEqual(outcomes.get('3.001', ''), 'lacks applicable evidence')
-            self.assertEqual(outcomes.get('5', ''), 'lacks applicable evidence')
-        finally:
-            os.unlink(tmppath)
 
-    def test_3mm001_and_5mm_excluded_for_missing_evidence(self) -> None:
-        """At 3.001 mm and 5 mm, catalog interval not applicable → lacks applicable evidence."""
+        # Test 3 mm: should be selected
+        completed = self._run_cli(case_dict, str(TEST_CATALOG))
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        result = json.loads(completed.stdout)
+        self.assertEqual(result['status'], 'feasible')
+        selected = result['selection'].get('selected')
+        self.assertIsNotNone(selected, '3 mm candidate must be selected')
+        self.assertEqual(selected['thickness_mm_display'], '3')
+
+        # Verify outcome category
+        self.assertEqual(result['candidates'][0]['outcome_category'],
+                         'passes under the stated assumptions')
+
+        # Test 3.001 mm: should be ineligible (exit 1, no selection)
+        case_3001 = {
+            'schema_version': '1.0',
+            'case_id': 'catalog-test-3001',
+            'title': 'Catalog test: 3.001 mm',
+            'description': 'Test interval not applicable at 3.001 mm',
+            'beam': {'length_mm': 100.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
+            'constraints': {
+                'max_tip_deflection_mm': 2.0,
+                'min_yield_safety_factor': 2.0,
+            },
+            'stock_thicknesses_mm': [3.001],
+            'materials': [
+                {
+                    'id': 'TEST-5052-H32',
+                    'name': 'Aluminum 5052-H32',
+                    'provenance': 'H32 temper',
+                    'elastic_modulus_gpa': 70.3,
+                    'density_kg_m3': 2680.0,
+                    'yield_strength_mpa': 193.0,
+                    'catalog_id': 'TEST-5052-H32',
+                }
+            ],
+        }
+        completed = self._run_cli(case_3001, str(TEST_CATALOG))
+        self.assertEqual(completed.returncode, 1, completed.stderr)
+        result = json.loads(completed.stdout)
+        self.assertEqual(result['status'], 'no_feasible_candidate')
+        self.assertIsNone(result['selection'].get('selected'))
+
+        # Test 5 mm: should be ineligible (exit 1, no selection)
+        case_5mm = {
+            'schema_version': '1.0',
+            'case_id': 'catalog-test-5mm',
+            'title': 'Catalog test: 5 mm',
+            'description': 'Test interval not applicable at 5 mm',
+            'beam': {'length_mm': 100.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
+            'constraints': {
+                'max_tip_deflection_mm': 2.0,
+                'min_yield_safety_factor': 2.0,
+            },
+            'stock_thicknesses_mm': [5.0],
+            'materials': [
+                {
+                    'id': 'TEST-5052-H32',
+                    'name': 'Aluminum 5052-H32',
+                    'provenance': 'H32 temper',
+                    'elastic_modulus_gpa': 70.3,
+                    'density_kg_m3': 2680.0,
+                    'yield_strength_mpa': 193.0,
+                    'catalog_id': 'TEST-5052-H32',
+                }
+            ],
+        }
+        completed = self._run_cli(case_5mm, str(TEST_CATALOG))
+        self.assertEqual(completed.returncode, 1, completed.stderr)
+        result = json.loads(completed.stdout)
+        self.assertEqual(result['status'], 'no_feasible_candidate')
+        self.assertIsNone(result['selection'].get('selected'))
+
+        # Test unknown catalog ID: should be ineligible (exit 1, no selection)
+        case_unknown = {
+            'schema_version': '1.0',
+            'case_id': 'catalog-test-unknown-id',
+            'title': 'Catalog test: unknown ID',
+            'description': 'Test unknown catalog ID makes candidate ineligible',
+            'beam': {'length_mm': 100.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
+            'constraints': {
+                'max_tip_deflection_mm': 2.0,
+                'min_yield_safety_factor': 2.0,
+            },
+            'stock_thicknesses_mm': [3.0],
+            'materials': [
+                {
+                    'id': 'TEST-5052-H32',
+                    'name': 'Aluminum 5052-H32',
+                    'provenance': 'H32 temper',
+                    'elastic_modulus_gpa': 70.3,
+                    'density_kg_m3': 2680.0,
+                    'yield_strength_mpa': 193.0,
+                    'catalog_id': 'UNKNOWN-ID',
+                }
+            ],
+        }
+        completed = self._run_cli(case_unknown, str(TEST_CATALOG))
+        self.assertEqual(completed.returncode, 1, completed.stderr)
+        result = json.loads(completed.stdout)
+        self.assertEqual(result['status'], 'no_feasible_candidate')
+        self.assertIsNone(result['selection'].get('selected'))
+
+    def test_out_of_range_and_unknown_id_return_ineligible(self) -> None:
+        """At 3.001 mm, 5 mm and unknown ID: null selection and exit 1."""
         import json, tempfile, os
         from pathlib import Path
 
-        case_dict = {
+        # Test 3.001 mm: out of range for (0, 3] → exit 1, null selection
+        case_3001 = {
             'schema_version': '1.0',
-            'case_id': 'catalog-test-out-of-range',
-            'title': 'Catalog test: out of range',
-            'description': 'Test catalog interval not applicable outside (0, 3]',
-            'beam': {'length_mm': 1000.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
+            'case_id': 'oorr-3001',
+            'title': 'Out of range: 3.001 mm',
+            'description': 'Catalog interval (0, 3] does not include 3.001 mm',
+            'beam': {'length_mm': 100.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
             'constraints': {
-                'max_tip_deflection_mm': 1.0,
+                'max_tip_deflection_mm': 2.0,
                 'min_yield_safety_factor': 2.0,
             },
-            'stock_thicknesses_mm': [3.0, 3.001, 5.0],
+            'stock_thicknesses_mm': [3.001],
             'materials': [
                 {
                     'id': 'TEST-5052-H32',
@@ -241,28 +337,101 @@ class CatalogApplicabilityTests(unittest.TestCase):
             ],
         }
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            json.dump(case_dict, f)
+            json.dump(case_3001, f)
             tmppath = f.name
         try:
             completed = subprocess.run(
-                ['python', '-m', 'metron', tmppath, '--catalog', str(TEST_CATALOG)],
+                [self.sys_exe, '-m', 'metron', tmppath, '--catalog', str(TEST_CATALOG)],
                 cwd=str(ROOT),
                 capture_output=True, text=True, encoding='utf-8',
                 check=False,
             )
-            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertEqual(completed.returncode, 1, completed.stderr)
             result = json.loads(completed.stdout)
             self.assertEqual(result['status'], 'no_feasible_candidate')
-            # Verify each candidate's outcome
-            for c in result['candidates']:
-                t = c['thickness_mm_display']
-                if t == '3':
-                    # 3 mm should pass (interval applies)
-                    self.assertEqual(c['outcome_category'], 'passes under the stated assumptions')
-                elif t in ('3.001', '5'):
-                    # Out of range → lacks applicable evidence
-                    self.assertEqual(c['outcome_category'], 'lacks applicable evidence')
-                    self.assertFalse(c['meets_all_constraints'])
+            self.assertIsNone(result['selection'].get('selected'))
+        finally:
+            os.unlink(tmppath)
+
+        # Test 5 mm: out of range for (0, 3] → exit 1, null selection
+        case_5mm = {
+            'schema_version': '1.0',
+            'case_id': 'oorr-5mm',
+            'title': 'Out of range: 5 mm',
+            'description': 'Catalog interval (0, 3] does not include 5 mm',
+            'beam': {'length_mm': 100.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
+            'constraints': {
+                'max_tip_deflection_mm': 2.0,
+                'min_yield_safety_factor': 2.0,
+            },
+            'stock_thicknesses_mm': [5.0],
+            'materials': [
+                {
+                    'id': 'TEST-5052-H32',
+                    'name': 'Aluminum 5052-H32',
+                    'provenance': 'H32 temper',
+                    'elastic_modulus_gpa': 70.3,
+                    'density_kg_m3': 2680.0,
+                    'yield_strength_mpa': 193.0,
+                    'catalog_id': 'TEST-5052-H32',
+                }
+            ],
+        }
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(case_5mm, f)
+            tmppath = f.name
+        try:
+            completed = subprocess.run(
+                [self.sys_exe, '-m', 'metron', tmppath, '--catalog', str(TEST_CATALOG)],
+                cwd=str(ROOT),
+                capture_output=True, text=True, encoding='utf-8',
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 1, completed.stderr)
+            result = json.loads(completed.stdout)
+            self.assertEqual(result['status'], 'no_feasible_candidate')
+            self.assertIsNone(result['selection'].get('selected'))
+        finally:
+            os.unlink(tmppath)
+
+        # Test unknown catalog ID: exit 1, null selection
+        case_unknown = {
+            'schema_version': '1.0',
+            'case_id': 'oorr-unknown-id',
+            'title': 'Out of range: unknown ID',
+            'description': 'Unknown catalog ID makes candidate ineligible',
+            'beam': {'length_mm': 100.0, 'width_mm': 20.0, 'tip_force_n': 10.0},
+            'constraints': {
+                'max_tip_deflection_mm': 2.0,
+                'min_yield_safety_factor': 2.0,
+            },
+            'stock_thicknesses_mm': [3.0],
+            'materials': [
+                {
+                    'id': 'TEST-5052-H32',
+                    'name': 'Aluminum 5052-H32',
+                    'provenance': 'H32 temper',
+                    'elastic_modulus_gpa': 70.3,
+                    'density_kg_m3': 2680.0,
+                    'yield_strength_mpa': 193.0,
+                    'catalog_id': 'UNKNOWN-ID',
+                }
+            ],
+        }
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(case_unknown, f)
+            tmppath = f.name
+        try:
+            completed = subprocess.run(
+                [self.sys_exe, '-m', 'metron', tmppath, '--catalog', str(TEST_CATALOG)],
+                cwd=str(ROOT),
+                capture_output=True, text=True, encoding='utf-8',
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 1, completed.stderr)
+            result = json.loads(completed.stdout)
+            self.assertEqual(result['status'], 'no_feasible_candidate')
+            self.assertIsNone(result['selection'].get('selected'))
         finally:
             os.unlink(tmppath)
 
