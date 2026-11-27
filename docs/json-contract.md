@@ -4,7 +4,7 @@ This document defines the input case format and the stable result envelope used 
 
 ## 1. Input case
 
-A case file is one UTF-8 JSON object with this shape:
+A case file is one UTF-8 JSON object, with or without a byte-order mark, with this shape:
 
 ```json
 {
@@ -271,7 +271,9 @@ For a feasible selection, `failed_constraints` is an empty list and `reason` is 
 }
 ```
 
-Error codes are stable strings such as `missing_field`, `unknown_field`, `wrong_type`, `non_finite`, `not_positive`, `duplicate_value`, `empty_value`, `unsupported_schema`, `invalid_json`, `file_not_found` and `file_unreadable`.
+Error codes are stable strings such as `missing_field`, `unknown_field`, `wrong_type`, `non_finite`, `not_positive`, `out_of_range`, `duplicate_value`, `empty_value`, `unsupported_schema`, `invalid_json`, `file_not_found` and `file_unreadable`.
+
+`out_of_range` means a finite input became non-finite or underflowed to zero when converted to SI. `numerical_range` means the inputs were individually valid, but a finite result could not be represented safely during evaluation; it is reported with the same `invalid_input` envelope and exit code `2`, never as a successful no-feasible result.
 
 ## 4. API surface
 

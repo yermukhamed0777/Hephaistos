@@ -26,14 +26,14 @@ python -m unittest discover -s tests -t . -v
 Observed final line:
 
 ```text
-Ran 44 tests in 0.341s
+Ran 52 tests
 
 OK
 ```
 
 Exit code: `0`.
 
-This covers the reference values, force scaling, thickness scaling, boundary equality, input validation, cross-material selection, tie-breaking, no-feasible-candidate output and the normal CLI entry point.
+This covers the reference values, force scaling, thickness scaling, boundary equality, input validation, cross-material selection, tie-breaking, no-feasible-candidate output, numeric-range handling, BOM input and the normal CLI entry point.
 
 ## Reference case through the CLI
 
@@ -60,6 +60,20 @@ python -m metron .\cases\support_arm_material_choice.json
 ```
 
 Exit code: `0`. Three of six candidates are feasible. Selected: `SYN-LD-02`, 5 mm, 18 g. The two lighter `SYN-LD-02` options fail only the deflection limit. This exercises selection across materials rather than selection only across thicknesses for one material.
+
+## Edge-case follow-up
+
+An external review identified that extreme finite inputs could escape validation and crash, and that Windows PowerShell BOM-prefixed JSON could be rejected. Both were fixed and are covered by regression tests. The repaired CLI behaviour was rechecked through the normal entry point:
+
+| Input variation | Exit | Status | Error code |
+|---|---:|---|---|
+| 401-digit integer for `length_mm` | 2 | `invalid_input` | `non_finite` |
+| `length_mm = 1e300` | 2 | `invalid_input` | `numerical_range` |
+| `stock_thicknesses_mm = [1e-120]` | 2 | `invalid_input` | `numerical_range` |
+| `elastic_modulus_gpa = 1e300` | 2 | `invalid_input` | `out_of_range` |
+| Reference case with a UTF-8 BOM | 0 | `feasible` | — (selected 4 mm) |
+
+No traceback was written to stderr for any of these cases.
 
 ## Interpretation of the checks
 

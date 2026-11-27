@@ -83,6 +83,37 @@ class ValidationTests(unittest.TestCase):
         document["beam"]["width_mm"] = float("inf")
         self.assert_invalid(document, "non_finite", "width_mm")
 
+    def test_huge_integer_is_rejected_without_overflowing(self) -> None:
+        document = valid_document()
+        document["beam"]["length_mm"] = 10**400
+        self.assert_invalid(document, "non_finite", "length_mm")
+
+    def test_conversion_overflow_is_rejected(self) -> None:
+        document = valid_document()
+        document["materials"][0]["elastic_modulus_gpa"] = 1.0e300
+        self.assert_invalid(document, "out_of_range", "elastic_modulus_gpa")
+
+    def test_conversion_underflow_is_rejected(self) -> None:
+        document = valid_document()
+        document["stock_thicknesses_mm"] = [5.0e-324]
+        self.assert_invalid(document, "out_of_range", "stock_thicknesses_mm[0]")
+
+    def test_utf8_bom_case_file_is_accepted(self) -> None:
+        handle = tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".json",
+            delete=False,
+            encoding="utf-8-sig",
+        )
+        with handle:
+            json.dump(valid_document(), handle)
+        path = Path(handle.name)
+        try:
+            case = load_case_file(path)
+        finally:
+            path.unlink(missing_ok=True)
+        self.assertEqual(case.case_id, "support-arm-reference")
+
     def test_non_positive_stock_is_rejected(self) -> None:
         document = valid_document()
         document["stock_thicknesses_mm"] = [3.0, 0.0, 5.0]

@@ -11,6 +11,7 @@ from metron.solver import (
     DEFLECTION_REJECTION,
     STATUS_FEASIBLE,
     STATUS_NO_FEASIBLE_CANDIDATE,
+    NumericalRangeError,
     evaluate_case,
 )
 
@@ -114,6 +115,20 @@ class BoundaryAndTieTests(unittest.TestCase):
         assert evaluation.selected is not None
         self.assertEqual(evaluation.selected.material.material_id, "SYN-TIE-A")
         self.assertAlmostEqual(evaluation.selected.mass_kg, 0.0216, places=15)
+
+
+class NumericalRangeTests(unittest.TestCase):
+    def test_extreme_length_raises_a_controlled_numeric_error(self) -> None:
+        case = load_case_file(REFERENCE_CASE)
+        case = replace(case, beam=replace(case.beam, length_m=1.0e300))
+        with self.assertRaises(NumericalRangeError):
+            evaluate_case(case)
+
+    def test_underflowing_thickness_raises_a_controlled_numeric_error(self) -> None:
+        case = load_case_file(REFERENCE_CASE)
+        case = replace(case, stock_thicknesses_m=(1.0e-120,))
+        with self.assertRaises(NumericalRangeError):
+            evaluate_case(case)
 
 
 class NoFeasibleCandidateTests(unittest.TestCase):

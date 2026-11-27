@@ -11,7 +11,7 @@ from typing import Sequence
 from ._version import __version__
 from .case import CaseValidationError, ValidationIssue, load_case_file
 from .report import RESULT_SCHEMA_VERSION, report_dict
-from .solver import STATUS_FEASIBLE, evaluate_case
+from .solver import STATUS_FEASIBLE, NumericalRangeError, evaluate_case
 
 EXIT_FEASIBLE = 0
 EXIT_NO_FEASIBLE = 1
@@ -98,7 +98,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return EXIT_INVALID_INPUT
 
-    result = report_dict(evaluate_case(case))
+    try:
+        result = report_dict(evaluate_case(case))
+    except NumericalRangeError as exc:
+        _emit(
+            _invalid_payload(
+                args.case_file,
+                [
+                    ValidationIssue(
+                        path="$",
+                        code="numerical_range",
+                        message=str(exc),
+                    )
+                ],
+            ),
+            args.compact,
+        )
+        return EXIT_INVALID_INPUT
+
     _emit(result, args.compact)
     return EXIT_FEASIBLE if result["status"] == STATUS_FEASIBLE else EXIT_NO_FEASIBLE
 

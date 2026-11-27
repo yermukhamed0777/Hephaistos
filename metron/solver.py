@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 from .beam import (
@@ -23,6 +24,25 @@ TIE_BREAK_RULE = (
     "Lowest mass_kg. Exact ties are resolved by material_id in ascending "
     "Unicode code-point order, then thickness_m in ascending order."
 )
+
+
+class NumericalRangeError(ValueError):
+    """Finite inputs produced a result outside the representable float range."""
+
+
+def _require_representable(
+    values: dict[str, float],
+    material_id: str,
+    thickness_m: float,
+) -> None:
+    for name, value in values.items():
+        if not math.isfinite(value) or value <= 0.0:
+            raise NumericalRangeError(
+                f"Calculation of {name} for material {material_id!r} at "
+                f"thickness {thickness_m * 1.0e3:g} mm produced a non-finite "
+                "or non-positive value. The inputs are outside the numeric "
+                "range supported by this model."
+            )
 
 
 @dataclass(frozen=True)
@@ -76,27 +96,46 @@ def evaluate_case(case: Case) -> Evaluation:
 
     for material in case.materials:
         for thickness_m in case.stock_thicknesses_m:
-            inertia = second_moment_of_area(beam.width_m, thickness_m)
-            stress = maximum_bending_stress(
-                beam.tip_force_n,
-                beam.length_m,
-                beam.width_m,
+            try:
+                inertia = second_moment_of_area(beam.width_m, thickness_m)
+                stress = maximum_bending_stress(
+                    beam.tip_force_n,
+                    beam.length_m,
+                    beam.width_m,
+                    thickness_m,
+                )
+                deflection = tip_deflection(
+                    beam.tip_force_n,
+                    beam.length_m,
+                    beam.width_m,
+                    thickness_m,
+                    material.elastic_modulus_pa,
+                )
+                mass = beam_mass(
+                    material.density_kg_m3,
+                    beam.width_m,
+                    thickness_m,
+                    beam.length_m,
+                )
+                safety = yield_safety_factor(material.yield_strength_pa, stress)
+            except (ArithmeticError, ValueError) as exc:
+                raise NumericalRangeError(
+                    f"Calculation for material {material.material_id!r} at "
+                    f"thickness {thickness_m * 1.0e3:g} mm failed in the "
+                    f"representable numeric range: {exc}"
+                ) from exc
+
+            _require_representable(
+                {
+                    "second_moment_of_area": inertia,
+                    "maximum_bending_stress": stress,
+                    "tip_deflection": deflection,
+                    "mass": mass,
+                    "yield_safety_factor": safety,
+                },
+                material.material_id,
                 thickness_m,
             )
-            deflection = tip_deflection(
-                beam.tip_force_n,
-                beam.length_m,
-                beam.width_m,
-                thickness_m,
-                material.elastic_modulus_pa,
-            )
-            mass = beam_mass(
-                material.density_kg_m3,
-                beam.width_m,
-                thickness_m,
-                beam.length_m,
-            )
-            safety = yield_safety_factor(material.yield_strength_pa, stress)
 
             deflection_passes = deflection <= limits.max_tip_deflection_m
             yield_passes = safety >= limits.min_yield_safety_factor

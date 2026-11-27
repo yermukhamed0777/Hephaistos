@@ -168,7 +168,16 @@ def _number(value: Any, path: str, issues: list[ValidationIssue]) -> float | Non
             "Expected a finite JSON number (not a string or boolean).",
         )
         return None
-    number = float(value)
+    try:
+        number = float(value)
+    except (OverflowError, ValueError):
+        _issue(
+            issues,
+            path,
+            "non_finite",
+            "Number is outside the finite binary64 range.",
+        )
+        return None
     if not math.isfinite(number):
         _issue(issues, path, "non_finite", "Number must be finite.")
         return None
@@ -183,6 +192,30 @@ def _positive_number(value: Any, path: str, issues: list[ValidationIssue]) -> fl
         _issue(issues, path, "not_positive", "Number must be greater than zero.")
         return None
     return number
+
+
+def _converted_si(
+    value: float | None,
+    multiplier: float,
+    path: str,
+    issues: list[ValidationIssue],
+) -> float | None:
+    """Convert at the input boundary and require a finite, positive SI value."""
+    if value is None:
+        return None
+    try:
+        converted = value * multiplier
+    except OverflowError:
+        converted = math.inf
+    if not math.isfinite(converted) or converted <= 0.0:
+        _issue(
+            issues,
+            path,
+            "out_of_range",
+            "Converted SI value must be finite and greater than zero.",
+        )
+        return None
+    return converted
 
 
 def parse_case_document(document: Any) -> Case:
@@ -244,10 +277,8 @@ def parse_case_document(document: Any) -> Case:
         tip_force_n = _positive_number(
             beam_obj.get("tip_force_n"), "$.beam.tip_force_n", issues
         )
-        if length_mm is not None:
-            length_m = length_mm * MM_TO_M
-        if width_mm is not None:
-            width_m = width_mm * MM_TO_M
+        length_m = _converted_si(length_mm, MM_TO_M, "$.beam.length_mm", issues)
+        width_m = _converted_si(width_mm, MM_TO_M, "$.beam.width_mm", issues)
 
     constraints_obj = _require_object(
         document.get("constraints"), "$.constraints", issues
@@ -268,8 +299,12 @@ def parse_case_document(document: Any) -> Case:
             "$.constraints.min_yield_safety_factor",
             issues,
         )
-        if max_deflection_mm is not None:
-            max_tip_deflection_m = max_deflection_mm * MM_TO_M
+        max_tip_deflection_m = _converted_si(
+            max_deflection_mm,
+            MM_TO_M,
+            "$.constraints.max_tip_deflection_mm",
+            issues,
+        )
 
     stock_thicknesses_m: list[float] = []
     raw_thicknesses = document.get("stock_thicknesses_mm")
@@ -294,7 +329,9 @@ def parse_case_document(document: Any) -> Case:
             thickness_mm = _positive_number(value, path, issues)
             if thickness_mm is None:
                 continue
-            thickness_m = thickness_mm * MM_TO_M
+            thickness_m = _converted_si(thickness_mm, MM_TO_M, path, issues)
+            if thickness_m is None:
+                continue
             if thickness_m in seen_thicknesses:
                 _issue(
                     issues,
@@ -381,15 +418,27 @@ def parse_case_document(document: Any) -> Case:
                 else:
                     seen_ids.add(material_id)
 
-            if None not in (modulus_gpa, density, yield_mpa):
+            modulus_pa = _converted_si(
+                modulus_gpa,
+                GPA_TO_PA,
+                f"{base_path}.elastic_modulus_gpa",
+                issues,
+            )
+            yield_pa = _converted_si(
+                yield_mpa,
+                MPA_TO_PA,
+                f"{base_path}.yield_strength_mpa",
+                issues,
+            )
+            if None not in (modulus_pa, density, yield_pa):
                 materials.append(
                     Material(
                         material_id=material_id,
                         name=name,
                         provenance=provenance,
-                        elastic_modulus_pa=modulus_gpa * GPA_TO_PA,
+                        elastic_modulus_pa=modulus_pa,
                         density_kg_m3=density,
-                        yield_strength_pa=yield_mpa * MPA_TO_PA,
+                        yield_strength_pa=yield_pa,
                     )
                 )
 
@@ -424,12 +473,13 @@ def parse_case_document(document: Any) -> Case:
 
 
 def load_case_file(path: str | Path) -> Case:
-    """Load a UTF-8 JSON case file and validate it.
+    """Load a UTF-8/BOM JSON case file and validate it.
 
     Malformed JSON is reported as a CaseValidationError with code
     ``invalid_json``. File-system errors propagate as OSError.
     """
-    text = Path(path).read_text(encoding="utf-8")
+    # utf-8-sig accepts both plain UTF-8 and the BOM emitted by Windows PowerShell.
+    text = Path(path).read_text(encoding="utf-8-sig")
     try:
         document = json.loads(text)
     except json.JSONDecodeError as exc:
@@ -442,6 +492,16 @@ def load_case_file(path: str | Path) -> Case:
                         f"Invalid JSON at line {exc.lineno}, column {exc.colno}: "
                         f"{exc.msg}."
                     ),
+                )
+            ]
+        ) from exc
+    except (ValueError, OverflowError) as exc:
+        raise CaseValidationError(
+            [
+                ValidationIssue(
+                    path="$",
+                    code="invalid_json",
+                    message=f"Invalid JSON value: {exc}.",
                 )
             ]
         ) from exc

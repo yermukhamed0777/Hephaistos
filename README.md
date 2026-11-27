@@ -189,7 +189,7 @@ A case is one JSON object. **Units live in the field names; there is no generic 
 | `materials[].density_kg_m3` | kg/m³ | Density `ρ` |
 | `materials[].yield_strength_mpa` | MPa | Yield strength `S_y` |
 
-The parser rejects unknown fields (including ambiguous `length` or `units`), numeric strings, booleans, non-finite values, non-positive dimensions and duplicate IDs/thicknesses. All conversions to SI happen at this one input boundary. See [`docs/json-contract.md`](docs/json-contract.md) for the full schema and output fields.
+The parser rejects unknown fields (including ambiguous `length` or `units`), numeric strings, booleans, non-finite values, non-positive dimensions, out-of-range unit conversions and duplicate IDs/thicknesses. All conversions to SI happen at this one input boundary. A finite input whose calculation cannot be represented is reported as structured invalid input (`numerical_range`, exit code `2`), not as a crash or a false "no feasible candidate". UTF-8 case files with or without a byte-order mark are accepted. See [`docs/json-contract.md`](docs/json-contract.md) for the full schema and output fields.
 
 The CLI is one entry point:
 
@@ -224,6 +224,7 @@ Coverage includes:
 - doubling thickness reduces stress by four and deflection by eight;
 - inclusive equality at the safety-factor boundary;
 - missing properties, invalid dimensions, ambiguous units, non-finite values and booleans;
+- out-of-range conversions, overflow/underflow numeric failures and UTF-8 BOM input;
 - selection across materials, exact-mass tie-breaking and no-feasible-candidate outcomes;
 - the normal CLI entry point, all three exit codes and machine-readable validation errors.
 

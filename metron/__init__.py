@@ -17,13 +17,14 @@ from .beam import (
 )
 from .case import Case, CaseValidationError, load_case_file, parse_case_document
 from .report import report_dict
-from .solver import CandidateResult, Evaluation, evaluate_case
+from .solver import CandidateResult, Evaluation, NumericalRangeError, evaluate_case
 
 __all__ = [
     "CandidateResult",
     "Case",
     "CaseValidationError",
     "Evaluation",
+    "NumericalRangeError",
     "beam_mass",
     "evaluate_case",
     "load_case_file",

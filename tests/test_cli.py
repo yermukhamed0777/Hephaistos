@@ -105,6 +105,38 @@ class CommandLineTests(unittest.TestCase):
         result = json.loads(completed.stdout)
         self.assertEqual(result["errors"][0]["code"], "file_not_found")
 
+    def test_extreme_finite_input_exits_two_with_json(self) -> None:
+        document = json.loads(REFERENCE_CASE.read_text(encoding="utf-8"))
+        document["beam"]["length_mm"] = 1.0e300
+        path = temporary_case(document)
+        try:
+            completed = run_cli(str(path))
+        finally:
+            path.unlink(missing_ok=True)
+        self.assertEqual(completed.returncode, 2, completed.stderr)
+        self.assertEqual(completed.stderr, "")
+        result = json.loads(completed.stdout)
+        self.assertEqual(result["status"], "invalid_input")
+        self.assertEqual(result["errors"][0]["code"], "numerical_range")
+
+    def test_bom_case_file_is_accepted(self) -> None:
+        handle = tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".json",
+            delete=False,
+            encoding="utf-8-sig",
+        )
+        with handle:
+            handle.write(REFERENCE_CASE.read_text(encoding="utf-8"))
+        path = Path(handle.name)
+        try:
+            completed = run_cli(str(path))
+        finally:
+            path.unlink(missing_ok=True)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        result = json.loads(completed.stdout)
+        self.assertEqual(result["status"], "feasible")
+
 
 if __name__ == "__main__":
     unittest.main()
