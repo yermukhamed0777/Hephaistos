@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hephaistos-metron"
+version = "0.1.0"
+description = "Metron: transparent material and stock-thickness selection for a static cantilever."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+metron = "metron.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["metron*"]
